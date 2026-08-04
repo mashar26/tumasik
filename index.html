@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Sampah Tumasik</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- jsPDF & AutoTable -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <!-- SheetJS (XLSX) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #10b981; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- GLOBAL CONFIGURATION: TEMPATKAN WEB APP URL HASIL DEPLOY APPS SCRIPT DI SINI -->
+    <script>
+        const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwNyfHwlXI3Lwss3HYdrBtV9wE5uUkiK1erEZVZj-VnUH_P8qvjeuTyAmZSOkg2j3EY/exec"; 
+    </script>
+
+    <!-- GLOBAL LOADING OVERLAY (z-9999) -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center text-white hidden">
+        <div class="w-12 h-12 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin mb-3"></div>
+        <p id="loadingText" class="font-medium text-sm">Menghubungkan ke Server...</p>
+    </div>
+
+    <!-- TOAST CONTAINER (z-2000) -->
+    <div id="toastContainer" class="fixed top-5 right-5 z-[2000] flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+    <!-- MODAL CONTAINER (z-1000) -->
+    <div id="modalOverlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-[1000] flex items-center justify-center p-4 hidden">
+        <div id="modalCard" class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all scale-95 opacity-0">
+            <div id="modalHeader" class="px-6 py-4 bg-slate-100 border-b border-slate-200 flex justify-between items-center">
+                <h3 id="modalTitle" class="font-bold text-slate-800">Judul Konfirmasi</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div id="modalBody" class="p-6 text-sm text-slate-600">
+                Apakah Anda yakin ingin melakukan aksi ini?
+            </div>
+            <div id="modalFooter" class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+                <button onclick="closeModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-lg">Batal</button>
+                <button id="modalConfirmBtn" class="px-4 py-2 text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg shadow-xs">Ya, Lanjutkan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW 1: AUTH SCREEN (DOM ISOLATION) -->
+    <div id="authScreen" class="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-emerald-50 via-teal-50 to-slate-100">
+        <div class="bg-white p-8 rounded-3xl shadow-xl border border-emerald-100 w-full max-w-md">
+            <div class="text-center mb-6">
+                <div class="w-24 h-24 mx-auto mb-3 flex items-center justify-center">
+                    <img src="logobs.jpg" alt="Logo Bank Sampah Tumasik" class="max-h-full max-w-full object-contain">
+                </div>
+                <h1 class="text-2xl font-black text-slate-800 tracking-tight">BANK SAMPAH TUMASIK</h1>
+                <p class="text-xs text-slate-500 mt-1">Sumber Jetis RW. 07 Kel. Sumber Kec. Banjarsari Surakarta</p>
+                <p class="text-xs font-semibold text-emerald-600 mt-0.5">HP: 08174873551</p>
+            </div>
+
+            <div id="loginFormCard" class="space-y-4">
+                <h2 class="text-lg font-bold text-slate-700 border-b border-slate-100 pb-2">Masuk ke Akun</h2>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">No. Rekening / Username</label>
+                    <input type="text" id="loginUser" class="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden" placeholder="Contoh: ADM-001 atau TMS-001">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Password</label>
+                    <input type="password" id="loginPass" class="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden" placeholder="••••••••">
+                </div>
+                <button onclick="handleLogin()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-md shadow-emerald-600/20 transition-all text-sm flex items-center justify-center gap-2">
+                    <i data-lucide="log-in" class="w-4 h-4"></i> Masuk Sekarang
+                </button>
+                <div class="text-center mt-4">
+                    <button onclick="toggleAuthMode('register')" class="text-xs text-emerald-600 hover:underline font-medium">Belum punya rekening? Daftar Nasabah Baru</button>
+                </div>
+            </div>
+
+            <div id="registerFormCard" class="space-y-4 hidden">
+                <h2 class="text-lg font-bold text-slate-700 border-b border-slate-100 pb-2">Pendaftaran Nasabah</h2>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Nama Lengkap *</label>
+                    <input type="text" id="regNama" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500" placeholder="Nama Lengkap">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">No. HP / WhatsApp *</label>
+                    <input type="tel" id="regHp" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500" placeholder="08XXXXXXXXXX">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Alamat (RT/RW/Rumah) *</label>
+                    <textarea id="regAlamat" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500" rows="2" placeholder="Alamat rumah lengkap"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Password *</label>
+                    <input type="password" id="regPass" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500" placeholder="••••••••">
+                </div>
+                <button onclick="handleRegister()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-md text-sm">Daftar Sekarang</button>
+                <div class="text-center">
+                    <button onclick="toggleAuthMode('login')" class="text-xs text-slate-500 hover:underline">Sudah punya akun? Masuk</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW 2: MAIN APP LAYOUT (HIDDEN UNTIL AUTHENTICATED) -->
+    <div id="mainAppScreen" class="min-h-screen flex flex-col hidden">
+        <header class="bg-emerald-700 text-white sticky top-0 z-50 shadow-md">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-white rounded-lg p-1 flex items-center justify-center shadow-xs">
+                        <img src="logobs.jpg" alt="Logo" class="max-h-full max-w-full object-contain">
+                    </div>
+                    <div>
+                        <h1 class="font-black text-base tracking-wide leading-tight">BANK SAMPAH TUMASIK</h1>
+                        <p class="text-[10px] text-emerald-100">Surakarta, Jawa Tengah</p>
+                    </div>
+                </div>
+
+                <nav id="desktopNav" class="hidden md:flex items-center gap-1 text-sm font-medium"></nav>
+
+                <div class="flex items-center gap-3">
+                    <div class="text-right hidden sm:block">
+                        <div id="userDisplayName" class="font-bold text-sm leading-tight">-</div>
+                        <span id="userDisplayRole" class="inline-block text-[10px] bg-emerald-800 text-emerald-200 px-2 py-0.5 rounded-full uppercase font-semibold">-</span>
+                    </div>
+                    <button onclick="handleLogout()" title="Keluar" class="p-2 hover:bg-emerald-800 rounded-lg text-emerald-100 hover:text-white transition-colors">
+                        <i data-lucide="log-out" class="w-5 h-5"></i>
+                    </button>
+                    <button onclick="toggleMobileMenu()" class="md:hidden p-2 hover:bg-emerald-800 rounded-lg">
+                        <i data-lucide="menu" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="mobileMenu" class="md:hidden hidden bg-emerald-800 border-t border-emerald-600 px-4 py-3 space-y-2"></div>
+        </header>
+
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            
+            <!-- SECTION 1: DASHBOARD STATS -->
+            <section id="secDashboard" class="space-y-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800">Dashboard Utama</h2>
+                        <p class="text-xs text-slate-500">Ringkasan statistik operasional Bank Sampah Tumasik</p>
+                    </div>
+                    <button onclick="fetchDashboardData()" class="px-3 py-1.5 text-xs bg-white border border-slate-300 hover:bg-slate-50 rounded-lg flex items-center gap-1 shadow-xs">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-slate-500 font-medium">Total Nasabah</p>
+                            <h3 id="statTotalNasabah" class="text-2xl font-black text-slate-800 mt-1">0</h3>
+                        </div>
+                        <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><i data-lucide="users" class="w-6 h-6"></i></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-slate-500 font-medium">Total Sampah Disetor</p>
+                            <h3 id="statTotalBerat" class="text-2xl font-black text-emerald-600 mt-1">0 Kg</h3>
+                        </div>
+                        <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center"><i data-lucide="scale" class="w-6 h-6"></i></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-slate-500 font-medium">Total Saldo Nasabah</p>
+                            <h3 id="statTotalSaldo" class="text-2xl font-black text-amber-600 mt-1">Rp 0</h3>
+                        </div>
+                        <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center"><i data-lucide="wallet" class="w-6 h-6"></i></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-slate-500 font-medium">Total Transaksi</p>
+                            <h3 id="statTotalTransaksi" class="text-2xl font-black text-indigo-600 mt-1">0</h3>
+                        </div>
+                        <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center"><i data-lucide="arrow-left-right" class="w-6 h-6"></i></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+                        <div class="flex justify-between items-center">
+                            <h3 class="font-bold text-slate-800 text-sm">Aktivitas Transaksi Terakhir</h3>
+                            <button onclick="switchTab('transaksi')" class="text-xs text-emerald-600 font-medium hover:underline">Lihat Semua</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-500">
+                                        <th class="p-2.5">Tanggal</th>
+                                        <th class="p-2.5">Nasabah</th>
+                                        <th class="p-2.5">Jenis/Tarik</th>
+                                        <th class="p-2.5">Tipe</th>
+                                        <th class="p-2.5 text-right">Nominal (Rp)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recentTransactionsTable" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+                        <h3 class="font-bold text-slate-800 text-sm">Informasi Bank Sampah</h3>
+                        <div class="space-y-3 text-xs text-slate-600 border-t border-slate-100 pt-3">
+                            <div class="flex gap-2">
+                                <i data-lucide="map-pin" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+                                <span>Sumber Jetis RW. 07 Kel. Sumber Kec. Banjarsari Surakarta Jawa Tengah 57138</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <i data-lucide="phone" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+                                <span>08174873551</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 2: SETOR SAMPAH -->
+            <section id="secSetor" class="space-y-6 hidden">
+                <div class="max-w-2xl mx-auto bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-xs">
+                    <h2 class="text-xl font-bold text-slate-800 mb-1">Form Transaksi Setor Sampah</h2>
+                    <p class="text-xs text-slate-500 mb-6">Input penimbangan sampah nasabah dan hitung nominal saldo secara otomatis.</p>
+                    
+                    <form id="formSetorSampah" onsubmit="submitSetor(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Pilih Nasabah *</label>
+                            <select id="setorNasabah" required class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300">
+                                <option value="">-- Pilih Nasabah --</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Kategori / Jenis Sampah *</label>
+                                <select id="setorJenis" onchange="calculateSetorTotal()" required class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300">
+                                    <option value="">-- Pilih Sampah --</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Harga per Kg (Rp)</label>
+                                <input type="text" id="setorHargaSatuan" readonly class="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50 font-bold" value="0">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Berat Sampah (Kg) *</label>
+                                <input type="number" step="0.1" id="setorBerat" min="0.1" oninput="calculateSetorTotal()" required class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300" placeholder="0.0">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Total Didapat (Rp)</label>
+                                <input type="text" id="setorTotalRp" readonly class="w-full px-3 py-2 text-sm rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-700 font-extrabold" value="Rp 0">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Unggah Foto Timbangan (Opsional)</label>
+                            <input type="file" id="setorFoto" accept="image/*" class="w-full text-xs text-slate-500">
+                        </div>
+                        <button type="submit" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md text-sm flex items-center justify-center gap-2 mt-4">
+                            <i data-lucide="check-circle" class="w-4 h-4"></i> Simpan Transaksi Setor
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- SECTION 3: TARIK SALDO -->
+            <section id="secTarik" class="space-y-6 hidden">
+                <div class="max-w-2xl mx-auto bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-xs">
+                    <h2 class="text-xl font-bold text-slate-800 mb-1">Form Pencairan Saldo Nasabah</h2>
+                    <p class="text-xs text-slate-500 mb-6">Pencairan tabungan sampah ke uang tunai / transfer.</p>
+                    
+                    <form id="formTarikSaldo" onsubmit="submitTarik(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Pilih Nasabah *</label>
+                            <select id="tarikNasabah" onchange="updateTarikSaldoInfo()" required class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300">
+                                <option value="">-- Pilih Nasabah --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Saldo Nasabah Saat Ini</label>
+                            <input type="text" id="tarikSaldoMax" readonly class="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-600 font-bold" value="Rp 0">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Jumlah Tarik Saldo (Rp) *</label>
+                            <input type="number" id="tarikJumlah" min="1000" step="1000" required class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300" placeholder="Kelipatan Rp 1.000">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Bukti Transfer/Penyerahan (Opsional)</label>
+                            <input type="file" id="tarikFoto" accept="image/*" class="w-full text-xs text-slate-500">
+                        </div>
+                        <button type="submit" class="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-md text-sm flex items-center justify-center gap-2 mt-4">
+                            <i data-lucide="arrow-down-right" class="w-4 h-4"></i> Proses Penarikan Saldo
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- SECTION 4: KATALOG SAMPAH -->
+            <section id="secKatalog" class="space-y-6 hidden">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">Katalog & Harga Sampah</h2>
+                        <p class="text-xs text-slate-500">Daftar kategori sampah dan patokan harga per kilogram</p>
+                    </div>
+                    <button id="btnTambahKatalog" onclick="openModalKatalog()" class="px-4 py-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl flex items-center gap-1.5 hidden">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Tambah Kategori
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="katalogGrid"></div>
+            </section>
+
+            <!-- SECTION 5: TRANSAKSI & BUKU TABUNGAN -->
+            <section id="secTransaksi" class="space-y-6 hidden">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">Riwayat Transaksi</h2>
+                        <p class="text-xs text-slate-500">Catatan mutasi penimbangan dan penarikan saldo</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="exportToExcel()" class="px-3 py-2 text-xs bg-emerald-100 text-emerald-700 hover:bg-emerald-200 font-medium rounded-xl flex items-center gap-1.5">
+                            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Unduh Excel
+                        </button>
+                        <button onclick="exportToPDF()" class="px-3 py-2 text-xs bg-rose-100 text-rose-700 hover:bg-rose-200 font-medium rounded-xl flex items-center gap-1.5">
+                            <i data-lucide="file-text" class="w-4 h-4"></i> Cetak PDF
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                    <div class="p-4 bg-slate-50 border-b border-slate-200">
+                        <input type="text" id="searchTxInput" oninput="onSearchTxChange()" placeholder="Cari nama / no. rek / jenis..." class="w-full max-w-xs px-3 py-2 text-xs bg-white rounded-xl border border-slate-300">
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
+                                    <th class="p-3">ID Tx</th>
+                                    <th class="p-3">Tanggal</th>
+                                    <th class="p-3">No. Rek / Nasabah</th>
+                                    <th class="p-3">Tipe</th>
+                                    <th class="p-3">Rincian / Berat</th>
+                                    <th class="p-3 text-right">Nominal (Rp)</th>
+                                    <th class="p-3 text-center">Struk</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fullTxTableBody" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 6: MANAJEMEN NASABAH (ADMIN ONLY) -->
+            <section id="secNasabah" class="space-y-6 hidden">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">Manajemen Pengguna & Nasabah</h2>
+                        <p class="text-xs text-slate-500">Daftar seluruh akun nasabah dan petugas terdaftar</p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
+                                    <th class="p-3">No. Rekening</th>
+                                    <th class="p-3">Nama Lengkap</th>
+                                    <th class="p-3">Role</th>
+                                    <th class="p-3">No. HP</th>
+                                    <th class="p-3">Alamat</th>
+                                    <th class="p-3 text-right">Saldo Saat Ini</th>
+                                    <th class="p-3 text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="userTableBody" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- CLIENT SCRIPT TERINTEGRASI API REAL -->
+    <script>
+        let currentUser = null;
+        let cachedKatalog = [];
+        let cachedTransactions = [];
+        let cachedUsers = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            checkSession();
+        });
+
+        // --- HTTP CALL VIA TEXT/PLAIN (ANTI-CORS BYPASS) ---
+        async function callApi(action, payloadData = {}) {
+            if (!GAS_API_URL || GAS_API_URL.includes("YOUR_GAS_WEB_APP_URL_HERE")) {
+                showToast("URL Backend belum dikonfigurasi di file index.html!", "error");
+                return { success: false, message: "URL Backend belum diisi" };
+            }
+
+            try {
+                const response = await fetch(GAS_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({ action: action, data: payloadData })
+                });
+
+                const result = await response.json();
+                return result;
+            } catch (err) {
+                showToast("Gagal menghubungkan ke server backend!", "error");
+                return { success: false, message: err.toString() };
+            }
+        }
+
+        function checkSession() {
+            const savedUser = sessionStorage.getItem('tumasik_user');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                renderAppLayout();
+            } else {
+                document.getElementById('authScreen').classList.remove('hidden');
+                document.getElementById('mainAppScreen').classList.add('hidden');
+            }
+        }
+
+        function toggleAuthMode(mode) {
+            if (mode === 'register') {
+                document.getElementById('loginFormCard').classList.add('hidden');
+                document.getElementById('registerFormCard').classList.remove('hidden');
+            } else {
+                document.getElementById('registerFormCard').classList.add('hidden');
+                document.getElementById('loginFormCard').classList.remove('hidden');
+            }
+        }
+
+        async function handleLogin() {
+            const username = document.getElementById('loginUser').value.trim();
+            const password = document.getElementById('loginPass').value.trim();
+
+            if (!username || !password) {
+                showToast('Isi Nomor Rekening dan Password!', 'warning');
+                return;
+            }
+
+            showLoading(true, 'Memverifikasi ke Server...');
+            const res = await callApi('login', { username: username, password: password });
+            showLoading(false);
+
+            if (res.success) {
+                currentUser = res.user;
+                sessionStorage.setItem('tumasik_user', JSON.stringify(res.user));
+                showToast(`Selamat datang, ${res.user.nama}!`, 'success');
+                renderAppLayout();
+            } else {
+                showToast(res.message, 'error');
+            }
+        }
+
+        async function handleRegister() {
+            const nama = document.getElementById('regNama').value.trim();
+            const hp = document.getElementById('regHp').value.trim();
+            const alamat = document.getElementById('regAlamat').value.trim();
+            const password = document.getElementById('regPass').value.trim();
+
+            if (!nama || !hp || !password) {
+                showToast('Lengkapi data pendaftaran!', 'warning');
+                return;
+            }
+
+            showLoading(true, 'Mendaftarkan akun ke Server...');
+            const res = await callApi('register', { nama: nama, hp: hp, alamat: alamat, password: password });
+            showLoading(false);
+
+            if (res.success) {
+                showToast(`Pendaftaran Berhasil! Nomor Rekening Anda: ${res.norek}`, 'success');
+                toggleAuthMode('login');
+                document.getElementById('loginUser').value = res.norek;
+            } else {
+                showToast(res.message, 'error');
+            }
+        }
+
+        function handleLogout() {
+            showModal('Konfirmasi Keluar', 'Apakah Anda yakin ingin keluar dari sistem?', () => {
+                sessionStorage.removeItem('tumasik_user');
+                currentUser = null;
+                document.getElementById('mainAppScreen').classList.add('hidden');
+                document.getElementById('authScreen').classList.remove('hidden');
+            });
+        }
+
+        function renderAppLayout() {
+            document.getElementById('authScreen').classList.add('hidden');
+            document.getElementById('mainAppScreen').classList.remove('hidden');
+
+            document.getElementById('userDisplayName').textContent = currentUser.nama;
+            document.getElementById('userDisplayRole').textContent = currentUser.role;
+
+            buildNavigation();
+            fetchKatalog();
+            fetchDashboardData();
+            if (currentUser.role === 'Admin') fetchUsersData();
+
+            switchTab('dashboard');
+        }
+
+        function buildNavigation() {
+            const desktopNav = document.getElementById('desktopNav');
+            const mobileMenu = document.getElementById('mobileMenu');
+            
+            let navItems = [
+                { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard', roles: ['Admin', 'Petugas', 'Nasabah'] },
+                { id: 'setor', label: 'Setor Sampah', icon: 'scale', roles: ['Admin', 'Petugas'] },
+                { id: 'tarik', label: 'Tarik Saldo', icon: 'wallet', roles: ['Admin', 'Petugas'] },
+                { id: 'katalog', label: 'Katalog Harga', icon: 'tags', roles: ['Admin', 'Petugas', 'Nasabah'] },
+                { id: 'transaksi', label: 'Riwayat Transaksi', icon: 'history', roles: ['Admin', 'Petugas', 'Nasabah'] },
+                { id: 'nasabah', label: 'Data Nasabah', icon: 'users', roles: ['Admin'] }
+            ];
+
+            const filteredItems = navItems.filter(item => item.roles.includes(currentUser.role));
+
+            let dHtml = '', mHtml = '';
+            filteredItems.forEach(item => {
+                dHtml += `<button id="navBtn-${item.id}" onclick="switchTab('${item.id}')" class="nav-btn px-3 py-2 rounded-lg hover:bg-emerald-800 transition-colors flex items-center gap-1.5 text-xs"><i data-lucide="${item.icon}" class="w-4 h-4"></i> ${item.label}</button>`;
+                mHtml += `<button id="mobNavBtn-${item.id}" onclick="switchTab('${item.id}'); toggleMobileMenu();" class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-emerald-700 text-white flex items-center gap-2 text-sm"><i data-lucide="${item.icon}" class="w-4 h-4"></i> ${item.label}</button>`;
+            });
+
+            desktopNav.innerHTML = dHtml;
+            mobileMenu.innerHTML = mHtml;
+            lucide.createIcons();
+        }
+
+        function switchTab(tabId) {
+            ['secDashboard', 'secSetor', 'secTarik', 'secKatalog', 'secTransaksi', 'secNasabah'].forEach(s => document.getElementById(s)?.classList.add('hidden'));
+            const targetSec = { 'dashboard': 'secDashboard', 'setor': 'secSetor', 'tarik': 'secTarik', 'katalog': 'secKatalog', 'transaksi': 'secTransaksi', 'nasabah': 'secNasabah' }[tabId];
+            if (targetSec && document.getElementById(targetSec)) document.getElementById(targetSec).classList.remove('hidden');
+        }
+
+        function toggleMobileMenu() {
+            document.getElementById('mobileMenu').classList.toggle('hidden');
+        }
+
+        async function fetchDashboardData() {
+            showLoading(true, 'Memuat Data Server...');
+            const res = await callApi('getDashboardData', { role: currentUser.role, norek: currentUser.norek });
+            showLoading(false);
+
+            if (res.success) {
+                document.getElementById('statTotalNasabah').textContent = res.stats.totalNasabah;
+                document.getElementById('statTotalBerat').textContent = `${res.stats.totalBeratKg.toFixed(1)} Kg`;
+                document.getElementById('statTotalSaldo').textContent = formatRp(res.stats.totalSaldo);
+                document.getElementById('statTotalTransaksi').textContent = res.stats.totalTransaksi;
+
+                cachedTransactions = res.recentTx || [];
+                renderRecentTxTable(res.recentTx);
+                renderFullTxTable(res.recentTx);
+            }
+        }
+
+        async function fetchKatalog() {
+            const res = await callApi('getKatalog');
+            if (res.success) {
+                cachedKatalog = res.katalog || [];
+                renderKatalogGrid(cachedKatalog);
+                populateKatalogDropdown();
+            }
+        }
+
+        async function fetchUsersData() {
+            const res = await callApi('getUsers');
+            if (res.success) {
+                cachedUsers = res.users || [];
+                renderUserTable(res.users);
+                populateNasabahDropdown();
+            }
+        }
+
+        function renderRecentTxTable(txList) {
+            let html = '';
+            (txList || []).slice(0, 5).forEach(t => {
+                html += `<tr><td class="p-2.5 text-slate-500">${t.tgl}</td><td class="p-2.5 font-medium">${t.nama}</td><td class="p-2.5 text-slate-600">${t.detail}</td><td class="p-2.5"><span class="px-2 py-0.5 text-[10px] font-bold rounded-full ${t.tipe === 'SETOR' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${t.tipe}</span></td><td class="p-2.5 text-right font-bold ${t.tipe === 'SETOR' ? 'text-emerald-600' : 'text-amber-600'}">${formatRp(t.total)}</td></tr>`;
+            });
+            document.getElementById('recentTransactionsTable').innerHTML = html || '<tr><td colspan="5" class="p-4 text-center text-slate-400">Data Kosong</td></tr>';
+        }
+
+        function renderFullTxTable(txList) {
+            let html = '';
+            (txList || []).forEach(t => {
+                html += `<tr><td class="p-3 font-mono font-bold">${t.id}</td><td class="p-3 text-slate-500">${t.tgl}</td><td class="p-3 font-semibold">${t.nama}<br><span class="text-[10px] text-slate-400 font-mono">${t.norek}</span></td><td class="p-3"><span class="px-2 py-0.5 text-[10px] font-bold rounded-full ${t.tipe === 'SETOR' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${t.tipe}</span></td><td class="p-3">${t.detail}</td><td class="p-3 text-right font-bold ${t.tipe === 'SETOR' ? 'text-emerald-600' : 'text-amber-600'}">${formatRp(t.total)}</td><td class="p-3 text-center"><button onclick='printReceipt(${JSON.stringify(t)})' class="p-1.5 hover:bg-slate-100 rounded-lg"><i data-lucide="printer" class="w-4 h-4"></i></button></td></tr>`;
+            });
+            document.getElementById('fullTxTableBody').innerHTML = html || '<tr><td colspan="7" class="p-4 text-center text-slate-400">Data Kosong</td></tr>';
+            lucide.createIcons();
+        }
+
+        function renderKatalogGrid(list) {
+            if (currentUser.role === 'Admin') document.getElementById('btnTambahKatalog').classList.remove('hidden');
+            let html = '';
+            list.forEach(k => {
+                html += `<div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between"><div><span class="inline-block px-2.5 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-600 rounded-full mb-2">${k.kategori}</span><h3 class="font-bold text-slate-800 text-sm">${k.nama}</h3></div><div class="mt-4 pt-3 border-t flex justify-between items-end"><span class="text-xs text-slate-400">Harga Satuan</span><span class="text-base font-black text-emerald-600">${formatRp(k.harga)} / ${k.satuan}</span></div></div>`;
+            });
+            document.getElementById('katalogGrid').innerHTML = html || '<p class="text-xs text-slate-400">Katalog kosong</p>';
+        }
+
+        function populateKatalogDropdown() {
+            let opts = '<option value="">-- Pilih Sampah --</option>';
+            cachedKatalog.forEach(k => opts += `<option value="${k.id}">${k.nama} - Rp ${k.harga.toLocaleString('id-ID')}/${k.satuan}</option>`);
+            document.getElementById('setorJenis').innerHTML = opts;
+        }
+
+        function populateNasabahDropdown() {
+            let opts = '<option value="">-- Pilih Nasabah --</option>';
+            cachedUsers.filter(u => u.role === 'Nasabah').forEach(n => opts += `<option value="${n.norek}">${n.nama} (${n.norek})</option>`);
+            document.getElementById('setorNasabah').innerHTML = opts;
+            document.getElementById('tarikNasabah').innerHTML = opts;
+        }
+
+        function calculateSetorTotal() {
+            const katId = document.getElementById('setorJenis').value;
+            const berat = parseFloat(document.getElementById('setorBerat').value) || 0;
+            const item = cachedKatalog.find(k => k.id === katId);
+            if (item) {
+                document.getElementById('setorHargaSatuan').value = item.harga.toLocaleString('id-ID');
+                document.getElementById('setorTotalRp').value = formatRp(item.harga * berat);
+            }
+        }
+
+        async function submitSetor(e) {
+            e.preventDefault();
+            const norek = document.getElementById('setorNasabah').value;
+            const katId = document.getElementById('setorJenis').value;
+            const berat = parseFloat(document.getElementById('setorBerat').value);
+            const item = cachedKatalog.find(k => k.id === katId);
+            const nasabah = cachedUsers.find(u => u.norek === norek);
+
+            if (!norek || !katId || !berat) return;
+
+            const fotoInput = document.getElementById('setorFoto');
+            let fotoBase64 = "";
+            if (fotoInput.files.length > 0) {
+                fotoBase64 = await toBase64(fotoInput.files[0]);
+            }
+
+            showLoading(true, 'Menyimpan Transaksi Ke Server...');
+            const res = await callApi('submitSetor', {
+                norek: norek, nama: nasabah ? nasabah.nama : norek, katId: katId, namaJenis: item.nama,
+                berat: berat, hargaSatuan: item.harga, totalRp: item.harga * berat, petugas: currentUser.nama, fotoBase64: fotoBase64
+            });
+            showLoading(false);
+
+            if (res.success) {
+                showToast(res.message, 'success');
+                document.getElementById('formSetorSampah').reset();
+                fetchDashboardData();
+            }
+        }
+
+        async function submitTarik(e) {
+            e.preventDefault();
+            const norek = document.getElementById('tarikNasabah').value;
+            const jumlah = parseInt(document.getElementById('tarikJumlah').value) || 0;
+            const nasabah = cachedUsers.find(u => u.norek === norek);
+
+            showLoading(true, 'Memproses Penarikan...');
+            const res = await callApi('submitTarik', {
+                norek: norek, nama: nasabah ? nasabah.nama : norek, jumlahTarik: jumlah, petugas: currentUser.nama
+            });
+            showLoading(false);
+
+            if (res.success) {
+                showToast(res.message, 'success');
+                document.getElementById('formTarikSaldo').reset();
+                fetchDashboardData();
+            }
+        }
+
+        function updateTarikSaldoInfo() {
+            const norek = document.getElementById('tarikNasabah').value;
+            const nasabah = cachedUsers.find(u => u.norek === norek);
+            if (nasabah) document.getElementById('tarikSaldoMax').value = formatRp(nasabah.saldo);
+        }
+
+        function renderUserTable(users) {
+            let html = '';
+            users.forEach(u => {
+                html += `<tr><td class="p-3 font-mono font-bold">${u.norek}</td><td class="p-3 font-medium">${u.nama}</td><td class="p-3"><span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-100">${u.role}</span></td><td class="p-3 text-slate-600">${u.hp}</td><td class="p-3 text-slate-500">${u.alamat}</td><td class="p-3 text-right font-bold text-emerald-600">${formatRp(u.saldo)}</td><td class="p-3 text-center"><span class="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 rounded-full">${u.status}</span></td></tr>`;
+            });
+            document.getElementById('userTableBody').innerHTML = html;
+        }
+
+        function toBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        function printReceipt(tx) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ unit: 'mm', format: [80, 120] });
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(10);
+            doc.text("BANK SAMPAH TUMASIK", 40, 10, { align: 'center' });
+            doc.setFont('Helvetica', ''); doc.setFontSize(6);
+            doc.text("Sumber Jetis RW 07 Surakarta | HP: 08174873551", 40, 14, { align: 'center' });
+            doc.line(5, 16, 75, 16);
+            doc.setFontSize(7);
+            doc.text(`ID Tx   : ${tx.id}`, 5, 21);
+            doc.text(`Tgl     : ${tx.tgl}`, 5, 25);
+            doc.text(`Nasabah : ${tx.nama}`, 5, 29);
+            doc.text(`Detail  : ${tx.detail}`, 5, 33);
+            doc.text(`Nominal : ${formatRp(tx.total)}`, 5, 37);
+            doc.line(5, 40, 75, 40);
+            doc.text(`Petugas : ${tx.petugas}`, 5, 45);
+            doc.output('dataurlnewwindow');
+        }
+
+        function formatRp(num) { return 'Rp ' + Number(num || 0).toLocaleString('id-ID'); }
+        function showLoading(show, text = 'Memproses data...') {
+            const overlay = document.getElementById('loadingOverlay');
+            document.getElementById('loadingText').textContent = text;
+            if (show) overlay.classList.remove('hidden'); else overlay.classList.add('hidden');
+        }
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `bg-slate-800 text-white p-4 rounded-xl shadow-lg text-xs flex items-center gap-2 pointer-events-auto transition-all`;
+            toast.innerHTML = `<span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3500);
+        }
+        function showModal(title, contentHtml, onConfirm) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalBody').innerHTML = contentHtml;
+            document.getElementById('modalOverlay').classList.remove('hidden');
+            document.getElementById('modalCard').classList.remove('scale-95', 'opacity-0');
+            document.getElementById('modalConfirmBtn').onclick = () => { if (onConfirm) onConfirm(); closeModal(); };
+        }
+        function closeModal() { document.getElementById('modalOverlay').classList.add('hidden'); }
+    </script>
+</body>
+</html>
