@@ -746,7 +746,9 @@
             document.getElementById('modalConfirmBtn').onclick = () => { if (onConfirm) onConfirm(); closeModal(); };
         }
         function closeModal() { document.getElementById('modalOverlay').classList.add('hidden'); }
-    </script><script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+        <!-- Library untuk Excel (SheetJS) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Library untuk PDF (html2pdf) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
         // --- FUNGSI UNDUH EXCEL ---
     function exportToExcel() {
