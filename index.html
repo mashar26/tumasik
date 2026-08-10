@@ -746,6 +746,45 @@
             document.getElementById('modalConfirmBtn').onclick = () => { if (onConfirm) onConfirm(); closeModal(); };
         }
         function closeModal() { document.getElementById('modalOverlay').classList.add('hidden'); }
-    </script>
+    </script><script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+        // --- FUNGSI UNDUH EXCEL ---
+    function exportToExcel() {
+        // Mengambil elemen tabel pertama yang ada di halaman
+        let table = document.querySelector("table"); 
+        
+        if(!table) {
+            alert("Tabel data tidak ditemukan!");
+            return;
+        }
+
+        // Proses konversi ke Excel
+        let workbook = XLSX.utils.table_to_book(table, {sheet: "Riwayat Transaksi"});
+        XLSX.writeFile(workbook, "Riwayat_Transaksi_Tumasik.xlsx");
+    }
+
+    // --- FUNGSI CETAK PDF ---
+    function exportToPDF() {
+        // Mengambil elemen tabel pertama yang ada di halaman
+        let element = document.querySelector("table"); 
+        
+        if(!element) {
+            alert("Tabel data tidak ditemukan!");
+            return;
+        }
+
+        // Pengaturan PDF (kertas A4, posisi Landscape agar tabel tidak terpotong)
+        let opt = {
+            margin:       0.5,
+            filename:     'Riwayat_Transaksi_Tumasik.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 },
+            jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
+        };
+
+        // Proses konversi ke PDF
+        html2pdf().set(opt).from(element).save();
+    }
+
 </body>
 </html>
